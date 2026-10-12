@@ -7,9 +7,8 @@ import {
   Plus,
   Save,
   Trash2,
-  Sparkles,
   Layers,
-  Image as ImageIcon,
+  Sparkles,
   Check
 } from 'lucide-react';
 
@@ -41,6 +40,11 @@ export const CreateDesignModal: React.FC<CreateDesignModalProps> = ({
   const [newCompRole, setNewCompRole] = useState('');
   const [newCompDetails, setNewCompDetails] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // AI Generation States
+  const [prompt, setPrompt] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (existingDesign) {
@@ -79,6 +83,36 @@ export const CreateDesignModal: React.FC<CreateDesignModalProps> = ({
         }
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  // Fixed endpoint to call Vercel Serverless Function correctly
+  const handleGenerateBlueprint = async () => {
+    const targetPrompt = prompt.trim() || title.trim() || '3D isometric enterprise cloud architecture blueprint';
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/generate-blueprint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: targetPrompt }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate blueprint image');
+
+      if (data.imageBase64) {
+        setImageUrl(`data:image/jpeg;base64,${data.imageBase64}`);
+      } else if (data.fallbackUrl) {
+        setImageUrl(data.fallbackUrl);
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during AI generation');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -201,6 +235,32 @@ export const CreateDesignModal: React.FC<CreateDesignModalProps> = ({
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
               />
             </div>
+          </div>
+
+          {/* AI Prompt Generator Section */}
+          <div className="space-y-2 p-3 rounded-xl bg-slate-950 border border-slate-800">
+            <label className="text-xs font-semibold text-cyan-400 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Generate Diagram with Gemini AI</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                placeholder="Describe diagram topology (e.g. AVS multi-region stretch cluster)..."
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyan-400"
+              />
+              <button
+                type="button"
+                onClick={handleGenerateBlueprint}
+                disabled={loading}
+                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shrink-0 transition-all"
+              >
+                {loading ? 'Synthesizing...' : 'Generate AI Image'}
+              </button>
+            </div>
+            {error && <p className="text-[11px] text-red-400 mt-1">{error}</p>}
           </div>
 
           {/* Diagram Image & Upload */}
